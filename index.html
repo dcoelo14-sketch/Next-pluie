@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Pluie (Open‑Meteo) – Timeline 15 min</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4a90e2">
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+  }
+
+  h2 {
+    text-align: center;
+  }
+
+  #timeline {
+    margin-top: 20px;
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 10px;
+  }
+
+  .bar {
+    width: 10px;
+    background: #4a90e2;
+    border-radius: 4px;
+  }
+
+  .bar.zero {
+    background: #ddd;
+  }
+
+  #result {
+    margin-top: 20px;
+    white-space: pre-line;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    .bar {
+      width: 6px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h2>Prévision de pluie (15 min)</h2>
+<button onclick="checkRain()">Actualiser</button>
+
+<div id="result"></div>
+<div id="timeline"></div>
+
+<script>
+async function checkRain() {
+  const lat = 48.29764;
+  const lon = -0.93143;
+
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&minutely_15=precipitation&timezone=auto`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const times = data.minutely_15.time.map(t => new Date(t));
+  const precip = data.minutely_15.precipitation;
+
+  const now = new Date();
+  let output = `Heure actuelle : ${now.toLocaleString()}\n\n`;
+
+  let iNow = times.findIndex(t =>
+    t.getHours() === now.getHours() &&
+    t.getDate() === now.getDate() &&
+    Math.abs(t.getMinutes() - now.getMinutes()) < 15
+  );
+  if (iNow === -1) iNow = 0;
+
+  if (precip[iNow] > 0) {
+    output += "🌧️ Il pleut actuellement.\n";
+
+    let i = iNow;
+    while (i < precip.length && precip[i] > 0) i++;
+
+    if (i < precip.length) {
+      output += `Fin de la pluie : ${times[i].toLocaleString()}\n`;
+    } else {
+      output += "La pluie continue au-delà des données disponibles.\n";
+    }
+
+    document.getElementById("result").textContent = output;
+    drawTimeline(precip);
+    return;
+  }
+
+  for (let i = iNow; i < precip.length; i++) {
+    if (precip[i] > 0) {
+      const diffMs = times[i] - now;
+      const diffMin = Math.round(diffMs / 60000);
+
+      let delayText;
+      if (diffMin < 60) {
+        delayText = `${diffMin} minutes`;
+      } else {
+        const diffH = (diffMin / 60).toFixed(1);
+        delayText = `${diffH} heures`;
+      }
+
+      output += `🌦️ Il va pleuvoir dans environ : ${delayText}\n`;
+      output += `Début de la pluie : ${times[i].toLocaleString()}\n`;
+
+      let j = i;
+      while (j < precip.length && precip[j] > 0) j++;
+
+      if (j < precip.length) {
+        output += `Fin de la pluie : ${times[j].toLocaleString()}\n`;
+      } else {
+        output += "La pluie continue au-delà des données disponibles.\n";
+      }
+
+      document.getElementById("result").textContent = output;
+      drawTimeline(precip);
+      return;
+    }
+  }
+
+  output += "☀️ Aucune pluie prévue dans les prochaines heures.";
+  document.getElementById("result").textContent = output;
+  drawTimeline(precip);
+}
+
+function drawTimeline(values) {
+  const container = document.getElementById("timeline");
+  container.innerHTML = "";
+
+  const max = Math.max(...values);
+
+  values.forEach(v => {
+    const bar = document.createElement("div");
+    bar.className = "bar" + (v === 0 ? " zero" : "");
+    bar.style.height = (v === 0 ? 5 : (v / max) * 80 + 10) + "px";
+    container.appendChild(bar);
+  });
+}
+
+// Enregistrement du service worker pour la PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .catch(err => console.error('SW registration failed', err));
+}
+</script>
+
+</body>
+</html>
