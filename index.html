@@ -108,7 +108,7 @@ async function checkRain() {
       if (diffMin < 60) {
         delayText = `${diffMin} minutes`;
       } else {
-        const diffH = (diffMin / 60).toFixed(1);
+        const diffH = (diffMin / 60).toFixed(2);
         delayText = `${diffH} heures`;
       }
 
@@ -159,4 +159,5 @@ if ('serviceWorker' in navigator) {
 </body>
   <footer><span>022026 coelod</span></footer>
 </html>
+
 
